@@ -166,8 +166,10 @@ static Function/S MenuItem(axis_name,i)
 End
 static Function MenuCommand(axis_name,i)
 	String axis_name; Variable i
-	WAVE/T w = root:Packages:RelabelAxis:Titles	
+	WAVE/T w = root:Packages:RelabelAxis:Labels
+	print "done", WaveExists(w), AxisExists(axis_name)
 	if(WaveExists(w) && AxisExists(axis_name))
+	print "Label "+axis_name+" \""+w[i]+"\""
 		Execute "Label "+axis_name+" \""+w[i]+"\""
 	endif
 End
