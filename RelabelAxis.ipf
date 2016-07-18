@@ -1,11 +1,11 @@
-#ifndef LOADED_REUSE_AXIS
-#define LOADED_REUSE_AXIS
+#ifndef LOADED_RELABEL_AXIS
+#define LOADED_RELABEL_AXIS
 #pragma ModuleName = RelabelAxis
 
 strconstant RelabelAxis_Menu="RelabelAxis"
 constant RelabelAxis_GreekConversion = 1 // Convert Greek characters in the menu with unicode characters.
 
-Menu StringFromList(0,RelabelAxis_Menu) + RelabelAxis#CacheTitles(),dynamic
+Menu StringFromList(0,RelabelAxis_Menu) + RelabelAxis#CacheLabels(),dynamic
 	RemoveListItem(0,RelabelAxis_Menu)
 	"Target: "+RelabelAxis#Target(),/Q, Execute/Q/Z "DoWindow/F "+RelabelAxis#Target()
 	"---"
@@ -142,7 +142,6 @@ End
 static Function/S Target()
 	return StringFromList(0,WinList("*",";","WIN:1"))
 End
-
 static Function AxisExists(axis_name)
 	String axis_name
 	if(WhichListItem(axis_name,"top;bottom;left;right;",";",0,0)>=0)
@@ -154,7 +153,7 @@ End
 
 static Function/S MenuItem(axis_name,i)
 	String axis_name; Variable i
-	WAVE/T w = root:Packages:RelabelAxis:Titles
+	WAVE/T w = root:Packages:RelabelAxis:Labels
 	if(WaveExists(w) && i<DimSize(w,0) &&AxisExists(axis_name))
 		String item = ReplaceString("\\\\",w[i],"\\")
 		if(RelabelAxis_GreekConversion)
@@ -172,26 +171,23 @@ static Function MenuCommand(axis_name,i)
 		Execute "Label "+axis_name+" \""+w[i]+"\""
 	endif
 End
-
-
 static Function/S SubMenuTitle(axis_name)
 	String axis_name	
 	return SelectString(AxisExists(axis_name),"No "+axis_name+" Axis","Set "+axis_name+" Axis Label")
 End
 
-static Function/S CacheTitles()
-	WAVE/T f=AllTitles()
+static Function/S CacheLabels()
+	WAVE/T f=AllLabels()
 	if(DimSize(f,0))
 		NewDataFolder/O root:Packages
 		NewDataFolder/O root:Packages:RelabelAxis
-		Duplicate/O/T f root:Packages:RelabelAxis:Titles
+		Duplicate/O/T f root:Packages:RelabelAxis:Labels
 	endif
 	return ""
 End
-
-static Function/WAVE AllTitles()
+static Function/WAVE AllLabels()
 	Make/T/FREE/N=0 f
-	Concatenate/T/NP {Titles("top"),Titles("bottom"),Titles("left"),Titles("right")},f
+	Concatenate/T/NP {Labels("top"),Labels("bottom"),Labels("left"),Labels("right")},f
 	Make/FREE/T/N=0 buf
 	do
 		InsertPoints 0,1,buf; buf[0] = f[inf]
@@ -200,7 +196,7 @@ static Function/WAVE AllTitles()
 	sort buf,buf
 	return buf
 End
-static Function/WAVE Titles(axis_name)
+static Function/WAVE Labels(axis_name)
 	String axis_name
 	String wins=WinList("*",";","WIN:1")
 	Make/FREE/T/N=(ItemsInList(wins)) f = WinRecreation(StringFromList(p,wins),0)
