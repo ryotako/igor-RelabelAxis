@@ -155,28 +155,25 @@ End
 static Function/S MenuItem(axis_name,i)
 	String axis_name; Variable i
 	WAVE/T main=GetCache(axis_name)
-	String other_names=RemoveFromList(axis_name,"top;bottom;left;right;")
-	Make/FREE/T/N=0 others
-	Concatenate/T {GetCache(StringFromList(0,other_names))},others
-	Concatenate/T {GetCache(StringFromList(1,other_names))},others
-	Concatenate/T {GetCache(StringFromList(2,other_names))},others
-	if(i<DimSize(main,0))
-		return "\M0"+Conceal(main[i])
-	elseif(i==DimSize(main,0) && DimSize(others,0)>0)
-		return "-"
+	WAVE/T others=GetCacheWithout(axis_name)
+	if(!AxisExists(axis_name))
+		return ""
+	elseif(i<DimSize(main,0))
+		return "\\M0"+Conceal(main[i])
+	elseif(i==DimSize(main,0))
+		return SelectString(DimSize(others,0),"","-")
 	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
-		return "\M0"+Conceal(others[i-DimSize(main,0)])
+		return "\\M0"+Conceal(others[i-DimSize(main,0)])
+	else
+		return ""
 	endif
 End
+
 
 static Function MenuCommand(axis_name,i)
 	String axis_name; Variable i
 	WAVE/T main=GetCache(axis_name)
-	String other_names=RemoveFromList(axis_name,"top;bottom;left;right;")
-	Make/FREE/T/N=0 others
-	Concatenate/T {GetCache(StringFromList(0,other_names))},others
-	Concatenate/T {GetCache(StringFromList(1,other_names))},others
-	Concatenate/T {GetCache(StringFromList(2,other_names))},others
+	WAVE/T others=GetCacheWithout(axis_name)
 	String cmd=""
 	if(!AxisExists(axis_name))
 	elseif(i<DimSize(main,0))
@@ -218,6 +215,16 @@ static Function/WAVE GetCache(name)
 		Make/FREE/T/N=0 f; return f
 	endif
 End
+Function/WAVE GetCacheWithout(name)
+	String name
+	String other_names=RemoveFromList(name,"top;bottom;left;right;")
+	Make/FREE/T/N=0 others
+	Concatenate/T {GetCache(StringFromList(0,other_names))},others
+	Concatenate/T {GetCache(StringFromList(1,other_names))},others
+	Concatenate/T {GetCache(StringFromList(2,other_names))},others
+	return Difference(others,GetCache(name))
+End
+
 
 static Function/WAVE Labels(name)
 	String name
@@ -231,51 +238,71 @@ End
 
 static Function/WAVE Unique(w)
 	WAVE/T w
-	Make/FREE/T head={w[0]}
-	Extract/FREE/T w,tail,cmpstr(w,w[0])
-	if(DimSize(tail,0))
+	if(DimSize(w,0))
+		Make/FREE/T head={w[0]}
+		Extract/FREE/T w,tail,cmpstr(w,w[0])
 		Concatenate/NP/T {Unique(tail)},head
+		return head
+	else
+		Make/FREE/T/N=0 f; return f
 	endif
-	return head
 End
-static Function/WAVE Sorted(w)
+Function/WAVE Sorted(w)
 	WAVE/T w
-	Sort w,w; return w
+	Sort w,w
+	return w
+End
+
+static Function/WAVE Difference(w1,w2)
+	WAVE/T w1,w2
+		Duplicate/FREE/T w1,f1
+		Duplicate/FREE/T w2,f2
+		Deletepoints 0,1,f2
+	if(DimSize(w2,0))
+		Extract/T/FREE f1,f1,cmpstr(f1,w2[0])
+		return Difference(f1,f2)
+	else
+		return f1
+	endif
 End
 
 
-
-Function/S Conceal(s)
+static Function/S Conceal(s)
 	String s
 	// Position
-	s = ConcealExpr(s,"\\\\B|\\\\S|\\\\M")
+	s = ConcealExpr(s,"\\\\\\\\B|\\\\\\\\S|\\\\\\\\M")
 	
 	// Color
-	s = ConcealExpr(s,"\\\\K([0-9]+,[0-9]+,[0-9]+)")
+	s = ConcealExpr(s,"\\\\\\\\K\([0-9]+,[0-9]+,[0-9]+\)")
 
 	// Informaton Parameters (\[0, \]0 )
 	// Not Implemented
 
 	// Style
-	s = ConcealExpr(s,"\\\\f\\d\\d")
+	s = ConcealExpr(s,"\\\\\\\\f\\d\\d")
 	
 	// Font
 	s = ReplaceGreekChar(s)
-	s = ConcealExpr(s,"\\\\F'[^']+'")
+	s = ConcealExpr(s,"\\\\\\\\F'[^']+'")
 
 	// FontSize
 	s = ReplaceFontSize(s)
-	s = ConcealExpr(s,"\\\\Z\\d\\d")
+	s = ConcealExpr(s,"\\\\\\\\Z\\d\\d")
 	
 	// Special Character
-//	s = ConcealExpr(s,"\\\\r")	
+	s = ConcealExpr(s,"\\\\r")	
 	
+	s = ReplaceEscape(s)
 	return s
 End
 
-Function/S ConcealExpr(s,expr)
+static Function/S ConcealExpr(s,expr)
 	String s,expr
-	String ref = ReplaceString("\\\\",s,"||"), head,body,tail
+//	print s
+	String ref = ReplaceString("\\\\\\\\",s,"||||"), head,body,tail
+	
+	//ref = s
+	
 	SplitString/E="^(.*?)("+expr+")" ref,head,body
 	head = s[0,strlen(head)-1]
 	body = s[strlen(head),strlen(head+body)-1]
@@ -286,17 +313,21 @@ Function/S ConcealExpr(s,expr)
 		return s
 	endif
 End
-Function/S ReplaceFontSize(str)
+static Function/S ReplaceEscape(s)
+	String s
+	return ReplaceString("\\\\\\\\",s,"\\")
+End
+static Function/S ReplaceFontSize(str)
 	String str
 	String head,body,tail
-	SplitString/E="(.*?)\\\\Z(\\d\\d)(.*)" str,head,body,tail
+	SplitString/E="(.*?)\\\\\\\\Z(\\d\\d)(.*)" str,head,body,tail
 	return SelectString(strlen(body),str,head+"["+body+"]"+tail)
 End
-Function/S ReplaceGreekChar(str)
+static Function/S ReplaceGreekChar(str)
 	String str
 	String head,body,tail,font
-	SplitString/E="^(?i)(.*?)\\\\F'Symbol'(.*)$" str,head,body
-	SplitString/E="^(.*?)(\\\\F'[^']+'.*)?$" body,body,tail
+	SplitString/E="^(?i)(.*?)\\\\\\\\F'Symbol'(.*)$" str,head,body
+	SplitString/E="^(.*?)(\\\\\\\\F'[^']+'.*)?$" body,body,tail
 	if(strlen(body))
 		body = ReplaceString("a",body,"ƒ¿",1); body = ReplaceString("A",body,"ƒŸ",1)  
 		body = ReplaceString("b",body,"ƒÀ",1); body = ReplaceString("B",body,"ƒ ",1)  
