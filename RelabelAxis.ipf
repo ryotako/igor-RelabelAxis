@@ -156,6 +156,8 @@ static Function/S MenuItem(axis_name,i)
 	String axis_name; Variable i
 	WAVE/T main=GetCache(axis_name)
 	WAVE/T others=GetCacheWithout(axis_name)
+//	print others
+
 	if(!AxisExists(axis_name))
 		return ""
 	elseif(i<DimSize(main,0))
@@ -163,7 +165,7 @@ static Function/S MenuItem(axis_name,i)
 	elseif(i==DimSize(main,0))
 		return SelectString(DimSize(others,0),"","-")
 	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
-		return "\\M0"+Conceal(others[i-DimSize(main,0)])
+		return "\\M0"+Conceal(others[i-DimSize(main,0)-1])
 	else
 		return ""
 	endif
@@ -180,7 +182,7 @@ static Function MenuCommand(axis_name,i)
 		sprintf cmd, "Label %s \"%s\"", axis_name,main[i]
 	elseif(i==DimSize(main,0) && DimSize(others,0)>0)
 	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
-		sprintf cmd, "Label %s \"%s\"", axis_name,others[i-DimSize(main,0)]
+		sprintf cmd, "Label %s \"%s\"", axis_name,others[i-DimSize(main,0)-1]
 	endif
 	print cmd
 	Execute cmd
@@ -222,7 +224,7 @@ Function/WAVE GetCacheWithout(name)
 	Concatenate/T {GetCache(StringFromList(0,other_names))},others
 	Concatenate/T {GetCache(StringFromList(1,other_names))},others
 	Concatenate/T {GetCache(StringFromList(2,other_names))},others
-	return Difference(others,GetCache(name))
+	return Sorted(Difference(Unique(others),GetCache(name)))
 End
 
 
