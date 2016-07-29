@@ -151,27 +151,39 @@ static Function AxisExists(axis_name)
 	endif
 End
 
+
 static Function/S MenuItem(axis_name,i)
 	String axis_name; Variable i
-	WAVE/T w = root:Packages:RelabelAxis:Labels
-	if(WaveExists(w) && i<DimSize(w,0) &&AxisExists(axis_name))
-		String item = ReplaceString("\\\\",w[i],"\\")
-		if(RelabelAxis_EnableConceal)
-			item = Conceal(item)
-		endif
-		return "\M0"+item
+	WAVE/T main=GetCache(axis_name)
+	WAVE/T others=GetCacheWithout(axis_name)
+	if(!AxisExists(axis_name))
+		return ""
+	elseif(i<DimSize(main,0))
+		return "\\M0"+Conceal(main[i])
+	elseif(i==DimSize(main,0))
+		return SelectString(DimSize(others,0),"","-")
+	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
+		return "\\M0"+Conceal(others[i-DimSize(main,0)])
 	else
 		return ""
 	endif
 End
+
+
 static Function MenuCommand(axis_name,i)
 	String axis_name; Variable i
-	WAVE/T w = root:Packages:RelabelAxis:Labels
-	print "done", WaveExists(w), AxisExists(axis_name)
-	if(WaveExists(w) && AxisExists(axis_name))
-	print "Label "+axis_name+" \""+w[i]+"\""
-		Execute "Label "+axis_name+" \""+w[i]+"\""
+	WAVE/T main=GetCache(axis_name)
+	WAVE/T others=GetCacheWithout(axis_name)
+	String cmd=""
+	if(!AxisExists(axis_name))
+	elseif(i<DimSize(main,0))
+		sprintf cmd, "Label %s \"%s\"", axis_name,main[i]
+	elseif(i==DimSize(main,0) && DimSize(others,0)>0)
+	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
+		sprintf cmd, "Label %s \"%s\"", axis_name,others[i-DimSize(main,0)]
 	endif
+	print cmd
+	Execute cmd
 End
 static Function/S SubMenuTitle(axis_name)
 	String axis_name	
@@ -179,73 +191,118 @@ static Function/S SubMenuTitle(axis_name)
 End
 
 static Function/S CacheLabels()
-	WAVE/T f=AllLabels()
-	if(DimSize(f,0))
-		NewDataFolder/O root:Packages
-		NewDataFolder/O root:Packages:RelabelAxis
-		Duplicate/O/T f root:Packages:RelabelAxis:Labels
-	endif
+	WAVE/T bottom = Sorted(Unique(Labels("bottom"))); SetCache("bottom",bottom)
+	WAVE/T left   = Sorted(Unique(Labels("left"  ))); SetCache("left"  ,left  )
+	WAVE/T top    = Sorted(Unique(Labels("top"   ))); SetCache("top"   ,top   )
+	WAVE/T right  = Sorted(Unique(Labels("right" ))); SetCache("right" ,right )
+	Make/T/FREE/N=0 all; Concatenate/T/NP {top,bottom,right,left},all; SetCache("all",all)
 	return ""
 End
-static Function/WAVE AllLabels()
-	Make/T/FREE/N=0 f
-	Concatenate/T/NP {Labels("top"),Labels("bottom"),Labels("left"),Labels("right")},f
-	Make/FREE/T/N=0 buf
-	do
-		InsertPoints 0,1,buf; buf[0] = f[inf]
-		Extract/T/FREE f,f,cmpstr(f,f[inf])
-	while(DimSize(f,0))
-	sort buf,buf
-	return buf
+static Function SetCache(name,w)
+	String name; WAVE/T w
+	if(DimSize(w,0))
+		NewDataFolder/O root:Packages
+		NewDataFolder/O root:Packages:RelabelAxis
+		Duplicate/O/T w $"root:Packages:RelabelAxis:"+PossiblyQuoteName(name)
+	endif
 End
-static Function/WAVE Labels(axis_name)
-	String axis_name
+static Function/WAVE GetCache(name)
+	String name
+	WAVE/T w=$"root:Packages:RelabelAxis:"+PossiblyQuoteName(name)
+	if(WaveExists(w))
+		return w
+	else
+		Make/FREE/T/N=0 f; return f
+	endif
+End
+Function/WAVE GetCacheWithout(name)
+	String name
+	String other_names=RemoveFromList(name,"top;bottom;left;right;")
+	Make/FREE/T/N=0 others
+	Concatenate/T {GetCache(StringFromList(0,other_names))},others
+	Concatenate/T {GetCache(StringFromList(1,other_names))},others
+	Concatenate/T {GetCache(StringFromList(2,other_names))},others
+	return Difference(others,GetCache(name))
+End
+
+
+static Function/WAVE Labels(name)
+	String name
 	String wins=WinList("*",";","WIN:1")
 	Make/FREE/T/N=(ItemsInList(wins)) f = WinRecreation(StringFromList(p,wins),0)
-	f = GrepList(f,"\tLabel "+axis_name,0,"\r")
-	f = (f)[strlen("\tLabel "+axis_name)+2,(strlen(f)-3)]
+	f = GrepList(f,"\tLabel "+name,0,"\r")
+	f = (f)[strlen("\tLabel "+name)+2,(strlen(f)-3)]
 	Extract/T/FREE f,f,strlen(f)
 	return f
 End
 
+static Function/WAVE Unique(w)
+	WAVE/T w
+	if(DimSize(w,0))
+		Make/FREE/T head={w[0]}
+		Extract/FREE/T w,tail,cmpstr(w,w[0])
+		Concatenate/NP/T {Unique(tail)},head
+		return head
+	else
+		Make/FREE/T/N=0 f; return f
+	endif
+End
+Function/WAVE Sorted(w)
+	WAVE/T w
+	Sort w,w
+	return w
+End
 
-// Conceal
-// - Convert Symbol Font by unicode
-// - Ignore font \F'..'
-// - Ignore font styles \f00, \f01 et al.
-// - Ignore information parameters \F[0, \F]0 et al.
-// - Ignore position information \B \S \M
-// - Ignore color information \K(r,g,b)
-// - Ignore fontsizes except for the first one
+static Function/WAVE Difference(w1,w2)
+	WAVE/T w1,w2
+		Duplicate/FREE/T w1,f1
+		Duplicate/FREE/T w2,f2
+		Deletepoints 0,1,f2
+	if(DimSize(w2,0))
+		Extract/T/FREE f1,f1,cmpstr(f1,w2[0])
+		return Difference(f1,f2)
+	else
+		return f1
+	endif
+End
 
-Function/S Conceal(s)
+
+static Function/S Conceal(s)
 	String s
 	// Position
-	s = ConcealExpr(s,"\\\\B|\\\\S|\\\\M")
+	s = ConcealExpr(s,"\\\\\\\\B|\\\\\\\\S|\\\\\\\\M")
 	
 	// Color
-	s = ConcealExpr(s,"\\\\K([0-9]+,[0-9]+,[0-9]+)")
+	s = ConcealExpr(s,"\\\\\\\\K\([0-9]+,[0-9]+,[0-9]+\)")
 
 	// Informaton Parameters (\[0, \]0 )
 	// Not Implemented
 
 	// Style
-	s = ConcealExpr(s,"\\\\f\\d\\d")
+	s = ConcealExpr(s,"\\\\\\\\f\\d\\d")
 	
 	// Font
 	s = ReplaceGreekChar(s)
-	s = ConcealExpr(s,"\\\\F'[^']+'")
+	s = ConcealExpr(s,"\\\\\\\\F'[^']+'")
 
 	// FontSize
 	s = ReplaceFontSize(s)
-	s = ConcealExpr(s,"\\\\Z\\d\\d")
-
+	s = ConcealExpr(s,"\\\\\\\\Z\\d\\d")
+	
+	// Special Character
+	s = ConcealExpr(s,"\\\\r")	
+	
+	s = ReplaceEscape(s)
 	return s
 End
 
-Function/S ConcealExpr(s,expr)
+static Function/S ConcealExpr(s,expr)
 	String s,expr
-	String ref = ReplaceString("\\\\",s,"||"), head,body,tail
+//	print s
+	String ref = ReplaceString("\\\\\\\\",s,"||||"), head,body,tail
+	
+	//ref = s
+	
 	SplitString/E="^(.*?)("+expr+")" ref,head,body
 	head = s[0,strlen(head)-1]
 	body = s[strlen(head),strlen(head+body)-1]
@@ -256,17 +313,21 @@ Function/S ConcealExpr(s,expr)
 		return s
 	endif
 End
-Function/S ReplaceFontSize(str)
+static Function/S ReplaceEscape(s)
+	String s
+	return ReplaceString("\\\\\\\\",s,"\\")
+End
+static Function/S ReplaceFontSize(str)
 	String str
 	String head,body,tail
-	SplitString/E="(.*?)\\\\Z(\\d\\d)(.*)" str,head,body,tail
+	SplitString/E="(.*?)\\\\\\\\Z(\\d\\d)(.*)" str,head,body,tail
 	return SelectString(strlen(body),str,head+"["+body+"]"+tail)
 End
-Function/S ReplaceGreekChar(str)
+static Function/S ReplaceGreekChar(str)
 	String str
 	String head,body,tail,font
-	SplitString/E="^(?i)(.*?)\\\\F'Symbol'(.*)$" str,head,body
-	SplitString/E="^(.*?)(\\\\F'[^']+'.*)?$" body,body,tail
+	SplitString/E="^(?i)(.*?)\\\\\\\\F'Symbol'(.*)$" str,head,body
+	SplitString/E="^(.*?)(\\\\\\\\F'[^']+'.*)?$" body,body,tail
 	if(strlen(body))
 		body = ReplaceString("a",body,"ƒ¿",1); body = ReplaceString("A",body,"ƒŸ",1)  
 		body = ReplaceString("b",body,"ƒÀ",1); body = ReplaceString("B",body,"ƒ ",1)  
