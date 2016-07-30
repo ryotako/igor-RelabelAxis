@@ -286,8 +286,6 @@ static Function ConcealedModeToggle()
 	endif
 End
 static Function ConcealedModeEnable()
-	NewDataFolder/O root:Packages
-	NewDataFolder/O root:Packages:RelabelAxis
 	NVAR v=root:Packages:RelabelAxis:V_EnableConceal
 	return NVAR_Exists(v) ? v : RelabelAxis_EnableConceal
 End
