@@ -137,6 +137,8 @@ Menu StringFromList(0,RelabelAxis_Menu) + RelabelAxis#CacheLabels(),dynamic
 		RelabelAxis#MenuItem("right", 28), /Q, RelabelAxis#MenuCommand("right", 28)
 		RelabelAxis#MenuItem("right", 29), /Q, RelabelAxis#MenuCommand("right", 29)
 	End//}}}
+	"-"
+	SelectString(RelabelAxis#ConcealedModeEnable(),"!"+num2char(18),"")+"Display Actual Label Strings",/Q,RelabelAxis#ConcealedModeToggle()
 End
 
 static Function/S Target()
@@ -154,18 +156,23 @@ End
 
 static Function/S MenuItem(axis_name,i)
 	String axis_name; Variable i
-	WAVE/T main=GetCache(axis_name)
-	WAVE/T others=GetCacheWithout(axis_name)
-//	print others
+	Duplicate/FREE/T GetCache(axis_name) main
+	Duplicate/FREE/T GetCacheWithout(axis_name)rest
+	if(DimSize(main,0))
+		main = "\\M0"+SelectString(ConcealedModeEnable(),ReplaceString("\\\\",main,"\\"),Conceal(main))
+	endif
+	if(DimSize(rest,0))
+		rest = "\\M0"+SelectString(ConcealedModeEnable(),ReplaceString("\\\\",rest,"\\"),Conceal(rest))
+	endif
 
 	if(!AxisExists(axis_name))
 		return ""
 	elseif(i<DimSize(main,0))
-		return "\\M0"+Conceal(main[i])
+		return main[i]
 	elseif(i==DimSize(main,0))
-		return SelectString(DimSize(others,0),"","-")
-	elseif(i< DimSize(main,0)+DimSize(others,0)+1)
-		return "\\M0"+Conceal(others[i-DimSize(main,0)-1])
+		return SelectString(DimSize(rest,0),"","-")
+	elseif(i< DimSize(main,0)+DimSize(rest,0)+1)
+		return rest[i-DimSize(main,0)-1]
 	else
 		return ""
 	endif
@@ -217,7 +224,7 @@ static Function/WAVE GetCache(name)
 		Make/FREE/T/N=0 f; return f
 	endif
 End
-Function/WAVE GetCacheWithout(name)
+static Function/WAVE GetCacheWithout(name)
 	String name
 	String other_names=RemoveFromList(name,"top;bottom;left;right;")
 	Make/FREE/T/N=0 others
@@ -249,12 +256,11 @@ static Function/WAVE Unique(w)
 		Make/FREE/T/N=0 f; return f
 	endif
 End
-Function/WAVE Sorted(w)
+static Function/WAVE Sorted(w)
 	WAVE/T w
 	Sort w,w
 	return w
 End
-
 static Function/WAVE Difference(w1,w2)
 	WAVE/T w1,w2
 		Duplicate/FREE/T w1,f1
@@ -269,6 +275,23 @@ static Function/WAVE Difference(w1,w2)
 End
 
 
+static Function ConcealedModeToggle()
+	NewDataFolder/O root:Packages
+	NewDataFolder/O root:Packages:RelabelAxis
+	NVAR v=root:Packages:RelabelAxis:V_EnableConceal
+	if(NVAR_Exists(v))
+		v = !v
+	else
+		Variable/G root:Packages:RelabelAxis:V_EnableConceal = ! RelabelAxis_EnableConceal
+	endif
+End
+static Function ConcealedModeEnable()
+	NewDataFolder/O root:Packages
+	NewDataFolder/O root:Packages:RelabelAxis
+	NVAR v=root:Packages:RelabelAxis:V_EnableConceal
+	return NVAR_Exists(v) ? v : RelabelAxis_EnableConceal
+End
+
 static Function/S Conceal(s)
 	String s
 	// Position
@@ -278,7 +301,7 @@ static Function/S Conceal(s)
 	s = ConcealExpr(s,"\\\\\\\\K\([0-9]+,[0-9]+,[0-9]+\)")
 
 	// Informaton Parameters (\[0, \]0 )
-	// Not Implemented
+	s = ConcealExpr(s,"\\\\\\\\(|F|Z|f)\\[\\d|\\\\\\\\(|F|Z|f)\\]\\d")
 
 	// Style
 	s = ConcealExpr(s,"\\\\\\\\f\\d\\d")
@@ -294,17 +317,14 @@ static Function/S Conceal(s)
 	// Special Character
 	s = ConcealExpr(s,"\\\\r")	
 	
+	// '\' itself
 	s = ReplaceEscape(s)
 	return s
 End
 
 static Function/S ConcealExpr(s,expr)
 	String s,expr
-//	print s
-	String ref = ReplaceString("\\\\\\\\",s,"||||"), head,body,tail
-	
-	//ref = s
-	
+	String ref = ReplaceString("\\\\\\\\",s,"||||"), head,body,tail	
 	SplitString/E="^(.*?)("+expr+")" ref,head,body
 	head = s[0,strlen(head)-1]
 	body = s[strlen(head),strlen(head+body)-1]
@@ -357,7 +377,7 @@ static Function/S ReplaceGreekChar(str)
 		body = ReplaceString("w",body,"ƒÖ",1); body = ReplaceString("W",body,"ƒ¶",1)  
 		body = ReplaceString("x",body,"ƒÌ",1); body = ReplaceString("X",body,"ƒ¬",1)  
 		body = ReplaceString("y",body,"ƒÕ",1); body = ReplaceString("Y",body,"ƒµ",1)  
-		body = ReplaceString("y",body,"ƒÄ",1); body = ReplaceString("Y",body,"ƒ¤",1)  
+		body = ReplaceString("z",body,"ƒÄ",1); body = ReplaceString("Z",body,"ƒ¤",1)  
 		return head+body+ReplaceGreekChar(tail)
 	else
 		return str
