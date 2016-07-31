@@ -1,4 +1,4 @@
-# igor-RelabelAxis
+# igor-relabel
 You don't have to type the same axis label again!
 
 ![Screenshot1](https://github.com/ryotako/igor-RelabelAxis/blob/master/Screenshot1.png)
