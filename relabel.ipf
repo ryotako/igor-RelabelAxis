@@ -200,6 +200,11 @@ static Function/S SubMenuTitle(axis_name)
 End
 
 static Function/S CacheLabels()
+	Execute/P/Q/Z "Relabel#CacheLabels_()"
+	return ""
+End
+
+static Function/S CacheLabels_()
 	WAVE/T bottom = Sorted(Unique(Labels("bottom"))); SetCache("bottom",bottom)
 	WAVE/T left   = Sorted(Unique(Labels("left"  ))); SetCache("left"  ,left  )
 	WAVE/T top    = Sorted(Unique(Labels("top"   ))); SetCache("top"   ,top   )
