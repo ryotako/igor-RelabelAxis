@@ -200,7 +200,7 @@ static Function/S SubMenuTitle(axis_name)
 End
 
 static Function/S CacheLabels()
-	Execute/P/Q/Z "Relabel#CacheLabels_()"
+	Execute/P/Q "Relabel#CacheLabels_()"
 	return ""
 End
 
